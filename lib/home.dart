@@ -4,6 +4,7 @@ import 'package:sibhat_messanger/services/auth.dart';
 import 'package:sibhat_messanger/services/database.dart';
 import 'package:sibhat_messanger/signin.dart';
 import 'chat_screen.dart';
+import 'package:sibhat_messanger/helperFunctions/sharedpref_helper.dart';
 class Home extends StatefulWidget {
   @override
   State<Home> createState() => _HomeState();
@@ -12,9 +13,26 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   bool isSearching = false;
   late Stream usersStream;
-
+  late String myName, myProfilePic, myUserName,myEmail;
   TextEditingController searchUsernameEditingController =
       TextEditingController();
+
+  getMyInfoFromSharedPreference()async{
+    myName = (await SharedPreferenceHelper().getDisplayName())!;
+    myProfilePic =(await SharedPreferenceHelper().getUserProfileUrl())!;
+    myUserName = (await SharedPreferenceHelper().getUserName())!;
+    myEmail = (await SharedPreferenceHelper().getUserEmail())!;
+  }
+
+
+  getChatRoomIdByUsernames(String a, String b){
+    if(a.substring(0,1).codeUnitAt(0) > b.substring(0,1).codeUnitAt(0)){
+      return "$b\_$a";
+    }
+    else{
+      return "$a\_$b";
+    }
+  }
 
   onSearchBtnClick() async{
     isSearching =true;
@@ -35,7 +53,12 @@ class _HomeState extends State<Home> {
               itemCount: snapshot.data.docs.length,
               itemBuilder:(context, index){
                 DocumentSnapshot ds = snapshot.data.docs[index];
-                   return searchListUserTile(ds["imgUrl"], ds["name"], ds["email"]);
+                   return searchListUserTile(
+                       profileUrl:ds["imgUrl"],
+                       name: ds["name"],
+                       email: ds["email"],
+                       username: ds["username"]
+                   );
               }
           ): Container(
             child: CircularProgressIndicator(),
@@ -44,10 +67,17 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget searchListUserTile(String profileUrl, name, email){
+  Widget searchListUserTile({required String profileUrl,username, name, email}){
     return GestureDetector(
       onTap: (){
-        Navigator.push(context, MaterialPageRoute(builder: (context)=> ChatScreen()));
+
+        var chatRoomId =getChatRoomIdByUsernames(myUserName, username);
+        Map<String, dynamic> chatRoomInfoMap ={
+          "users":[myUserName, username]
+        };
+        DatabaseMethods().createChatRoom(chatRoomId, chatRoomInfoMap);
+
+        Navigator.push(context, MaterialPageRoute(builder: (context)=> ChatScreen(username, name)));
       },
       child: Row(
         children: [
@@ -74,6 +104,13 @@ class _HomeState extends State<Home> {
 
   Widget chatRoomsList(){
     return Container();
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    getMyInfoFromSharedPreference();
+    super.initState();
   }
 
   @override
